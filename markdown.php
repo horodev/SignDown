@@ -87,7 +87,7 @@
 
             $tokens = array();
 
-            if($level === 128) {
+            if($level > 64) {
                 return $tokens; 
                 # This is a safety so we can stop someone from nesting elements into each other.
                 # We can have up to 256 function calls, however that is far too much for a document.
@@ -98,11 +98,15 @@
 
                 $line = $lines[$lnum];
 
-                if($lnum === $startLine) {
+                if($lnum === $startLine && $lnum === ($endLine - 1)) {
+                    $line = substr($line, $startLineOffset);
+                    $line = substr($line, 0, $endLineOffset - $startLineOffset);
+                }
+                else if($lnum === $startLine) {
                     $line = substr($line, $startLineOffset);
                 }
-                if ($lnum === $endLine - 1) {
-                    $line = substr($line, 0, $endLineOffset - $startLineOffset);
+                else if ($lnum === $endLine - 1) {
+                    $line = substr($line, 0, $endLineOffset);
                 }
 
                 foreach (array_keys(Markdown::$block) as $i=>$key) {
@@ -159,7 +163,10 @@
                 array_push($tokens, array("Name" =>"Setext Heading Start", "Type" => BlockEnum::SetextHeadingStart, "Line Number" => $counter, "Block Number" => $i, $matches[0], "Offset" => $level));
                 array_push($tokens, array("Name" => Markdown::$block[$key][1], "Type" => $type, "Line Number" => $startLine, "Match" => $matches[0][1], "Block Number" => $i, $matches[0], "Offset" => $level));
             } else if($counter === 0) {
-                # Todo Check for Thematic Break (--- will produce a thematic break, but not ===)
+                $key = "/^[ ]{0,3}(?:\-\s*){3,}$/";
+                if(preg_match($key, $matches[0][0])){
+                    return $this->resolveThematicBreak($lines, $startLine, $startLineOffset, $level, $matches, 10, $key);
+                }
             }
 
             return $tokens;
@@ -321,19 +328,10 @@
             return $input;
         }
 
-
-        # Test Behavior of
-        # > Hello
-        # World
-        # > > How are you?
-
-        # =>
-
-        # Expected:
-        # <blockquote>Hello\nWorld\n<blockquote><blockquote>How are you?</blockquote></blockquote></blockquote>
-
         public function parse(string $input) {
-            $input = "# Heading\n```\n\nTestCode();\n\nBNlaaaa\n```\n\nHallo\nWelt\n===\n\n> # Hello World Does\n This Work?\n> > > Heeelloo\n"; 
+            # $input = "# Heading\n```\n\nTestCode();\n\nBNlaaaa\n```\n\nHallo\nWelt\n===\n\n> # Hello World Does\n This Work?\n> > > Heeelloo\n"; 
+            # $input = "> Hello\nWorld\n> > How Are You?"; 
+            #$input = "----";
             # Fix Lists and SetextHeadings, Right now They Count until either they hit a line only filled with a "\n" or until they hit the end of the file.
             # It should more likely work with some kind of function "checkForBreak($line)" which returns a bool, it breaks
             # on AtxHeadings, Thematic Breaks, Other Lists, New Lines, Fenced Code Blocks, Block Quotes (for now, check further blocks that stop lists)
@@ -385,7 +383,7 @@
 <body>
     <form method="POST">
         <textarea name="input"></textarea>
-        <input type="submit" value="submite">
+        <input type="submit" value="Submit">
     </form>
 </body>
 </html>
